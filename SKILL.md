@@ -15,6 +15,7 @@ stdout **只能**输出一个 JSON 对象（不得夹杂日志/解释文本）�
 ## 输入（prompt payload）
 
 从 prompt 中读取 **第一个 fenced `json` code block**，其内容为 payload（不得依赖外部文件作为输入，除 `md_path` 指向的论文 Markdown 文件）。
+出于测试目的，用户可能在 prompt 中仅提供 `md_path` 而非一个 fenced `json` code block，这种情况下可将 `parent_itemKey` 和 `md_attachment_key` 设一虚拟值并执行 skill。
 
 payload 最小字段：
 
@@ -77,6 +78,23 @@ payload 最小字段：
    - 定位 references 区块并抽取条目
 5) 对输出做最小自检与修正（schema/类型/范围），确保可被严格 JSON 解析。
    - 推荐使用 `scripts/validate_output.py` 做格式验证与自动修复（见下文）。
+
+## LLM 与脚本的职责边界（重要）
+
+为避免某些 agent 在运行时“越界”导致质量下降，需强制遵守以下边界：
+
+- **必须由 LLM 执行（不得用脚本替代）**：
+  - 基于全文理解生成 digest（全局总结 + 分章节总结）
+  - 基于全文理解生成结构化骨架（大纲、章节范围、references 区块定位）
+  - 参考文献条目的语义级字段推断（作者/标题等）在规则不稳时的补全
+
+- **允许用脚本执行（确定性/可重复）**：
+  - 读取 `md_path`、计算 sha256、生成 `provenance`
+  - 输出 schema 校验、字段迁移、类型纠正、将过长输出物化到文件（`digest_path`/`references_path`）
+
+- **绝对禁止**：
+  - 不得擅自创建新的 Python/JS/Bash 脚本去“替代 LLM 的摘要/大纲/语义判断工作”（即使看起来可自动化）。
+  - 除本 skill 已提供的脚本（`scripts/provenance.py`、`scripts/validate_output.py`）外，不应新增脚本来完成上述 LLM 任务。
 
 ### Digest 输出结构（Markdown）
 
@@ -259,6 +277,14 @@ payload 最小字段：
 - 条目分割不稳定：保留 `raw`，并输出 `author=[]`、`title=""`、`year=null`，`confidence` 置低（例如 0.1）
 - 关键标识优先提取：`DOI`、`url`、`arxiv`、`year`（可用正则/启发式；其余字段尽力）
 - 在参考文献条目抽取中遇到体例识别、条目切分或字段边界问题时，可参考：`references/bibliography_formats.md`
+- 作者字段抽取（非常重要，避免丢失名缩写）：
+  - `author[]` 的目标是保留**可直接展示/匹配**的作者字符串；优先按 `raw` 中出现的形式保存（常见为 `Surname, Initials.` 或 `Initials. Surname`）。
+  - 不要只输出姓（例如把 `Al-Rfou, R.` 简化为 `Al-Rfou`）；必须尽量保留 given name 的缩写/首字母（如 `R.`、`Q.V.`、`L.S.`）。
+  - 对 `et al.` / `等`：仅表示作者被截断；可以将 `et al.` 作为作者列表中的最后一项（例如 `"et al."`），或写入 `warnings` 并降低 `confidence`，但不要擅自补全不存在的作者。
+  - 例（期望输出）：
+    - `raw`: `Bahdanau, D., Cho, K., Bengio, Y.: ...` → `author`: `["Bahdanau, D.", "Cho, K.", "Bengio, Y."]`
+    - `raw`: `Bodla, N., ... Davis, L.S.: ...` → `author`: `["Bodla, N.", "...", "Davis, L.S."]`
+    - `raw`: `Le, Q.V.: ...` → `author`: `["Le, Q.V."]`（注意不要拆丢 `Q.V.`）
 
 ## 默认行为协议（必须遵守）
 
