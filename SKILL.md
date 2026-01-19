@@ -48,6 +48,7 @@ payload 最小字段：
 - `references_path`：输出文件路径（内容为 UTF‑8 JSON 数组）
 - `provenance.generated_at`：UTC ISO‑8601
 - `provenance.input_hash`：`sha256:<hex>`（对 `md_path` 文件 bytes 计算）
+- `provenance.model`: 使用的模型名称
 - `warnings`：数组
 - `error`：`object|null`
 
