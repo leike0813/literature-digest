@@ -318,9 +318,7 @@ payload 最小字段：
 3) 再用 `scripts/validate_output.py --mode check` 校验必须通过；若仍失败，回退到最小可用输出（空 digest/空 references + error）
 
 输出物化（避免 stdout 截断）：
-- 推荐默认将 `digest`（Markdown）与 `references`（JSON 数组）写入临时目录文件，再在 stdout JSON 中仅回传路径：
-  - `digest_path=<tmp>/digest.md`
-  - `references_path=<tmp>/references.json`
-- 临时目录选择策略（跨平台）：
-  - 优先使用环境变量 `LITERATURE_DIGEST_OUTPUT_DIR`（由插件端设置，便于统一管理）
-  - 否则使用系统临时目录（Linux 通常为 `/tmp`；Windows 通常为 `%TEMP%`），并创建子目录 `literature-digest/run-.../`
+- 为避免 stdout 截断，必须将结果文件直接写入**输入文档 `md_path` 所在目录**（便于受限 agent 访问）：
+  - `digest_path=<dir_of_md_path>/digest.md`
+  - `references_path=<dir_of_md_path>/references.json`
+- 文件名固定：`digest.md` 与 `references.json`（UTF‑8）。

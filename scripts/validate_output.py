@@ -7,13 +7,14 @@ import math
 import os
 import re
 import sys
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 
 SCHEMA_VERSION = "literature_digest_v1"
+DIGEST_FILENAME = "digest.md"
+REFERENCES_FILENAME = "references.json"
 
 
 def utc_now_iso() -> str:
@@ -94,22 +95,21 @@ def _write_json(path: Path, data: object) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _resolve_output_root(explicit_out_dir: Path | None) -> Path:
-    # Cross-platform strategy:
-    # 1) Explicit CLI --out-dir
-    # 2) Env var LITERATURE_DIGEST_OUTPUT_DIR (plugin can set)
-    # 3) OS temp dir
+def _resolve_output_root(explicit_out_dir: Path | None, md_path: Path | None) -> Path:
+    # Strategy (to avoid sandbox escapes in some agents):
+    # 1) Use the input md_path directory (preferred, if available)
+    # 2) Explicit CLI --out-dir
+    # 3) Env var LITERATURE_DIGEST_OUTPUT_DIR (plugin can set)
+    # 4) OS temp dir
+    if md_path is not None:
+        return md_path.parent
     if explicit_out_dir is not None:
         return explicit_out_dir
     env = os.environ.get("LITERATURE_DIGEST_OUTPUT_DIR")
     if env:
         return Path(env).expanduser()
-    return Path(tempfile.gettempdir()) / "literature-digest"
-
-
-def _new_run_dir(output_root: Path) -> Path:
-    output_root.mkdir(parents=True, exist_ok=True)
-    return Path(tempfile.mkdtemp(prefix="run-", dir=str(output_root)))
+    # Last resort fallback (should be avoided when md_path is available).
+    return Path.cwd()
 
 
 def _normalize_reference_item(item: object, *, fix: bool, warnings: list[str]) -> dict[str, Any]:
@@ -184,9 +184,9 @@ def _materialize_outputs(
     if digest_content is None and references_items is None:
         return
 
-    run_dir = _new_run_dir(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
     if digest_content is not None:
-        digest_file = run_dir / "digest.md"
+        digest_file = output_root / DIGEST_FILENAME
         _write_text(digest_file, digest_content)
         out["digest_path"] = str(digest_file)
         out.pop("digest", None)
@@ -197,7 +197,7 @@ def _materialize_outputs(
         if isinstance(references_items, list):
             for item in references_items:
                 normalized_items.append(_normalize_reference_item(item, fix=True, warnings=warnings))
-        refs_file = run_dir / "references.json"
+        refs_file = output_root / REFERENCES_FILENAME
         _write_json(refs_file, normalized_items)
         out["references_path"] = str(refs_file)
         out.pop("references", None)
@@ -361,7 +361,7 @@ def main() -> int:
         md_path = None
 
     out_dir = Path(args.out_dir).expanduser() if args.out_dir else None
-    output_root = _resolve_output_root(out_dir)
+    output_root = _resolve_output_root(out_dir, md_path)
 
     obj = _load_input(in_path)
 

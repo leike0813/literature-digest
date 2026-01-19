@@ -18,4 +18,6 @@ stdout 仅输出一个 JSON 对象（`literature_digest_v1`），为避免截断
 - `digest_path`：Markdown 文件路径
 - `references_path`：JSON 文件路径（数组）
 
+结果文件默认写入输入文档 `md_path` 所在目录，文件名固定为 `digest.md` 与 `references.json`。
+
 更多细节见 `SKILL.md`。 
