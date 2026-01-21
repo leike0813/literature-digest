@@ -2,8 +2,6 @@
 name: literature-digest
 description: Generate a paper digest (Markdown) and extract reference entries (structured JSON array) from a MinerU-produced paper Markdown file. Use when invoked as $literature-digest with a prompt-embedded JSON payload containing md_path.
 compatibility: Requires local filesystem read access to md_path; no network required.
-metadata:
-  schema_version: literature_digest_v1
 ---
 
 # literature-digest（literature_digest_v1）
@@ -14,23 +12,11 @@ stdout **只能**输出一个 JSON 对象（不得夹杂日志/解释文本）�
 
 ## 输入（prompt payload）
 
-从 prompt 中读取 **第一个 fenced `json` code block**，其内容为 payload（不得依赖外部文件作为输入，除 `md_path` 指向的论文 Markdown 文件）。
-出于测试目的，用户可能在 prompt 中仅提供 `md_path` 而非一个 fenced `json` code block，这种情况下可将 `parent_itemKey` 和 `md_attachment_key` 设一虚拟值并执行 skill。
-
-payload 最小字段：
-
-```json
-{
-  "schema_version": "literature_digest_v1",
-  "parent_itemKey": "ABCD1234",
-  "md_attachment_key": "EFGH5678",
-  "md_path": "C:\\\\Zotero\\\\storage\\\\XXXX\\\\paper.md",
-  "language": "zh-CN"
-}
-```
+从 prompt 中读取：
+- `md_path`：待解析的论文 Markdown 文件路径。
+- `language`： 论文总结使用的语言。
 
 约束：
-- `schema_version` 固定为 `literature_digest_v1`；若不一致，按 `literature_digest_v1` 执行并写入 `warnings`。
 - `md_path` 是唯一内容来源；以 UTF‑8 读取。
 - `language` 支持：
   - `zh-CN`（默认）
@@ -41,14 +27,11 @@ payload 最小字段：
 
 输出 JSON 必须包含（即使为空也要存在）：
 
-- `schema_version`：固定 `literature_digest_v1`
-- `parent_itemKey`：回显输入
-- `md_attachment_key`：回显输入
 - `digest_path`：输出文件路径（内容为 Markdown 纯文本；**不包含**插件侧协议头；协议头由插件端组装写入 Zotero note）
 - `references_path`：输出文件路径（内容为 UTF‑8 JSON 数组）
 - `provenance.generated_at`：UTC ISO‑8601
 - `provenance.input_hash`：`sha256:<hex>`（对 `md_path` 文件 bytes 计算）
-- `provenance.model`: 使用的模型名称
+- `provenance.model`：解析使用的模型
 - `warnings`：数组
 - `error`：`object|null`
 
@@ -71,7 +54,7 @@ payload 最小字段：
 
 ## 处理步骤（建议工作流）
 
-1) 解析 payload（第一个 fenced `json` code block），做最小校验与默认值回退。
+1) 解析 prompt，做最小校验与默认值回退。
 2) 读取 `md_path`（UTF‑8）并计算 `input_hash`（sha256）。
 3) 使用全文 Markdown 生成“结构化骨架”（建议为 JSON）：包含大纲与 references 区块位置（按原始 md 行号 1-based）。
 4) 基于骨架：

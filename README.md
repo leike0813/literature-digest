@@ -6,11 +6,9 @@
 
 ## 输入
 
-以 `$literature-digest` 调用，并从 prompt 中读取第一个 fenced `json` code block 作为 payload：
-- `schema_version`：固定 `literature_digest_v1`
-- `parent_itemKey` / `md_attachment_key`：用于对齐防串单
-- `md_path`：唯一内容来源（UTF-8）
-- `language`：`zh-CN`（默认）或 `en-US`
+以 `$literature-digest` 调用，并从 prompt 中读取：
+- `md_path`：待解析论文 Markdown 路径，唯一内容来源（UTF-8）
+- `language`：论文总结语言，`zh-CN`（默认）或 `en-US`
 
 ## 输出（stdout）
 
